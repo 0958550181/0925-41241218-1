@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>記憶翻牌遊戲</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-start;
+            background: linear-gradient(135deg, #f9f9f9 40%, #e1e1e1 100%);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .game-container, .stats-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+        }
+
+        .game-container h1 {
+            color: #333;
+            text-align: center;
+            font-size: 24px;
+        }
+
+        .info {
+            margin-bottom: 20px;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 100px);
+            grid-gap: 10px;
+            margin-top: 20px;
+        }
+
+        .card {
+            width: 100px;
+            height: 100px;
+            background-color: #ffcccb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: transform 0.3s ease;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+        }
+
+        .card img {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+        }
+
+        .hidden img {
+            display: none;
+        }
+
+        .matched {
+            background-color: #b5e7a0;
+            cursor: default;
+        }
+
+        button {
+            margin-top: 15px;
+            padding: 12px;
+            font-size: 16px;
+            width: 100%;
+            border: none;
+            border-radius: 5px;
+            background-color: #007BFF;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .stats-container {
+            text-align: center;
+        }
+
+        .stats h2 {
+            color: #444;
+            margin-bottom: 10px;
+        }
+
+        .stats p {
+            font-size: 16px;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        dialog {
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            width: 300px;
+        }
+
+        dialog input {
+            display: block;
+            margin-bottom: 10px;
+            padding: 10px;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        dialog button {
+            padding: 10px;
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        dialog button:hover {
+            background-color: #45a049;
+        }
+
+        .error {
+            color: red;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <h1>記憶翻牌遊戲</h1>
+
+    <div class="info">
+        <label for="player-name">玩家名稱: </label>
+        <input type="text" id="player-name" placeholder="輸入你的名稱">
+        <p>金幣: <span id="coins">1000</span></p>
+    </div>
+
+    <div id="game-board" class="game-board"></div>
+    <button id="start-button">開始遊戲</button>
+    <button id="flip-all-button">統一翻轉所有卡片</button>
+    <button id="toggle-theme-button">切換卡片主題</button>
+    <button id="recharge-button">儲值</button>
+    <button id="lottery-button">抽獎箱</button>
+</div>
+
+<div class="stats-container">
+    <div class="stats">
+        <h2>遊戲統計</h2>
+        <p>翻牌次數: <span id="flip-count">0</span></p>
+        <p>消費金幣: <span id="spent-coins">0</span></p>
+        <p>獲得金幣: <span id="earned-coins">0</span></p>
+        <p>抽獎次數: <span id="lottery-count">0</span></p>
+        <label for="lottery-history">抽獎紀錄:</label>
+        <select id="lottery-history">
+            <option value="">-- 選擇歷史紀錄 --</option>
+        </select>
+    </div>
+</div>
+
+<dialog id="recharge-dialog">
+    <h3>儲值金幣</h3>
+    <input type="number" id="recharge-amount" placeholder="輸入儲值金額">
+    <input type="text" id="credit-card" placeholder="輸入信用卡帳號">
+    <p id="credit-error" class="error"></p>
+    <button id="confirm-recharge">確認儲值</button>
+</dialog>
+
+<script>
+    const themes = [
+        [
+        '06.png', '02.png', 
+        '08.png', '01.png', 
+        '02.png', '03.png', 
+        '06.png', '04.png', 
+        '05.png', '07.png', 
+        '04.png', '01.png', 
+        '07.png', '05.png', 
+        '03.png', '08.png'
+        ],
+        [
+        '6.png', '2.png', 
+        '8.png', '1.png', 
+        '2.png', '3.png', 
+        '6.png', '4.png', 
+        '5.png', '7.png', 
+        '4.png', '1.png', 
+        '7.png', '5.png', 
+        '3.png', '8.png'
+        ]
+    ];
+
+    let currentThemeIndex = 0;
+    let firstCard = null;
+    let secondCard = null;
+    let lockBoard = false;
+    let isGameStarted = false;
+    let coins = 1000;
+    let flipCount = 0;
+    let spentCoins = 0;
+    let earnedCoins = 0;
+    let lotteryCount = 0;
+    let cards = themes[currentThemeIndex];
+
+    function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    function createBoard() {
+        const gameBoard = document.getElementById('game-board');
+        gameBoard.innerHTML = ''; // 清空現有的卡片
+        cards.forEach((cardValue) => {
+            const cardElement = document.createElement('div');
+            cardElement.classList.add('card', 'hidden');
+            cardElement.setAttribute('data-value', cardValue);
+
+            const imgElement = document.createElement('img');
+            imgElement.src = cardValue;
+            cardElement.appendChild(imgElement);
+
+            cardElement.addEventListener('click', () => {
+                if (isGameStarted && coins >= 100) {
+                    flipCard(cardElement);
+                } else if (coins < 100) {
+                    alert('金幣不足！');
+                }
+            });
+
+            gameBoard.appendChild(cardElement);
+        });
+    }
+
+    function startGame() {
+        const allCards = document.querySelectorAll('.card');
+        allCards.forEach(card => {
+            card.classList.add('hidden');
+        });
+        shuffle(cards);
+        isGameStarted = true;
+    }
+
+    function flipCard(cardElement) {
+        if (lockBoard || cardElement === firstCard || cardElement.classList.contains('matched')) return;
+
+        cardElement.classList.remove('hidden');
+        cardElement.querySelector('img').style.display = 'block';
+
+        if (!firstCard) {
+            firstCard = cardElement;
+            deductCoins(100);
+            flipCount++;
+            updateStats();
+        } else {
+            secondCard = cardElement;
+            deductCoins(100);
+            flipCount++;
+            updateStats();
+
+            checkForMatch();
+        }
+    }
+
+    function checkForMatch() {
+        if (firstCard.dataset.value === secondCard.dataset.value) {
+            firstCard.classList.add('matched');
+            secondCard.classList.add('matched');
+            resetBoard();
+            awardCoins(200);
+        } else {
+            lockBoard = true;
+            setTimeout(() => {
+                firstCard.querySelector('img').style.display = 'none';
+                secondCard.querySelector('img').style.display = 'none';
+                resetBoard();
+            }, 1000);
+        }
+    }
+
+    function resetBoard() {
+        [firstCard, secondCard] = [null, null];
+        lockBoard = false;
+    }
+
+    function deductCoins(amount) {
+        coins -= amount;
+        spentCoins += amount;
+        updateStats();
+        updateCoins();
+    }
+
+    function awardCoins(amount) {
+        coins += amount;
+        earnedCoins += amount;
+        updateStats();
+        updateCoins();
+    }
+
+    function updateCoins() {
+        document.getElementById('coins').textContent = coins;
+    }
+
+    function updateStats() {
+        document.getElementById('flip-count').textContent = flipCount;
+        document.getElementById('spent-coins').textContent = spentCoins;
+        document.getElementById('earned-coins').textContent = earnedCoins;
+    }
+
+    // 抽獎箱功能
+    document.getElementById('lottery-button').addEventListener('click', () => {
+        if (coins >= 500) {
+            deductCoins(500);
+            const prizes = ['再接再利', '200金幣', '50金幣', '馬的可憐', '1000金幣'];
+            const prize = prizes[Math.floor(Math.random() * prizes.length)];
+            
+            if (prize === '200金幣') {
+                awardCoins(200);
+            } else if (prize === '50金幣') {
+                awardCoins(50);
+            } else if (prize === '1000金幣') {
+                awardCoins(1000);
+            }
+
+            alert(`恭喜獲得：${prize}`);
+            lotteryCount++;
+            updateLotteryHistory(prize);
+        } else {
+            alert('金幣不足！');
+        }
+    });
+
+    // 更新抽獎紀錄
+    function updateLotteryHistory(prize) {
+        const historySelect = document.getElementById('lottery-history');
+        const newOption = document.createElement('option');
+        newOption.value = prize;
+        newOption.textContent = `抽獎結果：${prize}`;
+        historySelect.appendChild(newOption);
+
+        document.getElementById('lottery-count').textContent = lotteryCount;
+    }
+
+    // 儲值功能
+    const rechargeDialog = document.getElementById('recharge-dialog');
+    const rechargeButton = document.getElementById('recharge-button');
+    const confirmRecharge = document.getElementById('confirm-recharge');
+    const creditError = document.getElementById('credit-error');
+
+    rechargeButton.addEventListener('click', () => {
+        rechargeDialog.showModal();  // 顯示儲值彈窗
+    });
+
+    confirmRecharge.addEventListener('click', () => {
+        const rechargeAmount = document.getElementById('recharge-amount').value;
+        const creditCard = document.getElementById('credit-card').value;
+
+        if (creditCard.length !== 16 || isNaN(creditCard)) {
+            creditError.textContent = '請輸入正確格式（16 位數字）';
+        } else {
+            creditError.textContent = '';
+            if (rechargeAmount && creditCard) {
+                coins += parseInt(rechargeAmount);
+                updateCoins();
+                alert(`儲值成功，已新增 ${rechargeAmount} 金幣`);
+                rechargeDialog.close();  // 關閉彈窗
+            }
+        }
+    });
+
+    // 點擊彈窗外部關閉
+    rechargeDialog.addEventListener('click', (e) => {
+        if (e.target === rechargeDialog) {
+            rechargeDialog.close();
+        }
+    });
+
+    // 統一翻轉所有卡片
+    document.getElementById('flip-all-button').addEventListener('click', () => {
+        const allCards = document.querySelectorAll('.card');
+        allCards.forEach(card => {
+            card.classList.remove('hidden');
+            card.querySelector('img').style.display = 'block';
+        });
+    });
+
+    // 切換卡片主題
+    document.getElementById('toggle-theme-button').addEventListener('click', () => {
+        currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+        cards = themes[currentThemeIndex];
+        createBoard();
+    });
+
+    createBoard();
+
+    document.getElementById('start-button').addEventListener('click', () => {
+        startGame();
+    });
+</script>
+
+</body>
+</html>
